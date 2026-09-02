@@ -1,0 +1,53 @@
+# MediSync AI pipeline infrastructure.
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Reset:  docker compose down -v   (deletes the postgres + redis data volumes)
+#
+# Matches AI/.env:
+#   REDIS_URL=redis://localhost:6379/0
+#   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/medisync
+#   CHROMA_HOST=localhost  CHROMA_PORT=8001
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: medisync-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: medisync-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medisync
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medisync"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: medisync-chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+volumes:
+  redis-data:
+  postgres-data:
+  chroma-data:
