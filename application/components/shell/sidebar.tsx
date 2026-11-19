@@ -17,6 +17,8 @@ import {
   LogOut,
   Receipt,
   BarChart3,
+  Brain,
+  Network,
 } from "lucide-react";
 import { NewAdmissionButton } from "./new-admission-button";
 
@@ -99,6 +101,18 @@ const NAV_ITEMS: NavItem[] = [
     label: "AI Chat",
     href: "/chat",
     icon: MessageSquare,
+    roles: ["doctor", "nurse", "admin"],
+  },
+  {
+    label: "Memory Vault",
+    href: "/memory",
+    icon: Brain,
+    roles: ["doctor", "nurse", "admin"],
+  },
+  {
+    label: "System Graph",
+    href: "/graph",
+    icon: Network,
     roles: ["doctor", "nurse", "admin"],
   },
   {

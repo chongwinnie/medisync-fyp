@@ -4,27 +4,45 @@ import { auth0 } from "@/lib/auth0";
 const AUTH0_API_SETUP_HINT =
   "Authorize this application for the Auth0 API (identifier http://localhost:8000) under APIs → Application Access, then log out and log in again.";
 
+const DEV_ROLES = ["doctor", "nurse", "admin"] as const;
+
 export async function POST(request: NextRequest) {
   const session = await auth0.getSession(request);
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const devRole = request.cookies.get("medisync_dev_role")?.value;
+  const isDevLogin =
+    !!devRole &&
+    DEV_ROLES.includes(devRole as (typeof DEV_ROLES)[number]);
+
+  if (!session && !isDevLogin) {
+    return NextResponse.json(
+      { error: "Not authenticated" },
+      { status: 401 }
+    );
   }
 
-  const audience = process.env.AUTH0_AUDIENCE;
   const tokenResponse = new NextResponse();
   let accessToken = "";
 
-  try {
-    const tokenResult = audience
-      ? await auth0.getAccessToken(request, tokenResponse, { audience })
-      : await auth0.getAccessToken(request, tokenResponse);
-    accessToken = tokenResult.token;
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "Token request failed";
-    return NextResponse.json(
-      { error: AUTH0_API_SETUP_HINT, detail },
-      { status: 401 }
-    );
+  if (isDevLogin) {
+    accessToken = `dev-token-${devRole}`;
+  } else {
+    const audience = process.env.AUTH0_AUDIENCE;
+
+    try {
+      const tokenResult = audience
+        ? await auth0.getAccessToken(request, tokenResponse, { audience })
+        : await auth0.getAccessToken(request, tokenResponse);
+
+      accessToken = tokenResult.token;
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : "Token request failed";
+
+      return NextResponse.json(
+        { error: AUTH0_API_SETUP_HINT, detail },
+        { status: 401 }
+      );
+    }
   }
 
   if (!accessToken) {
@@ -35,15 +53,21 @@ export async function POST(request: NextRequest) {
   }
 
   let body: { message?: string; session_id?: string };
+
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
   }
 
-  const aiUrl = process.env.NEXT_PUBLIC_AI_API_URL ?? "http://localhost:8000";
+  const aiUrl =
+    process.env.NEXT_PUBLIC_AI_API_URL ?? "http://localhost:8000";
 
   let upstream: Response;
+
   try {
     upstream = await fetch(`${aiUrl}/chat`, {
       method: "POST",
@@ -57,7 +81,9 @@ export async function POST(request: NextRequest) {
       }),
     });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "Connection failed";
+    const detail =
+      error instanceof Error ? error.message : "Connection failed";
+
     return NextResponse.json(
       {
         error: `Cannot reach AI backend at ${aiUrl}. Start it with: cd AI && uvicorn main:app --reload --port 8000`,
@@ -69,6 +95,7 @@ export async function POST(request: NextRequest) {
 
   if (!upstream.ok) {
     const text = await upstream.text();
+
     return NextResponse.json(
       { error: text || `AI backend returned ${upstream.status}` },
       { status: upstream.status }
@@ -76,7 +103,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!upstream.body) {
-    return NextResponse.json({ error: "AI backend returned empty body" }, { status: 502 });
+    return NextResponse.json(
+      { error: "AI backend returned empty body" },
+      { status: 502 }
+    );
   }
 
   const sseResponse = new NextResponse(upstream.body, {

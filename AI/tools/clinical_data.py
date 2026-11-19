@@ -94,27 +94,46 @@ def get_patient_clinical_summary(patient_id: str) -> str:
         conn = await apg_connect()
         try:
             async with conn.transaction():
-                patient = await conn.fetchrow(
-                    """SELECT id, patient_code, full_name, email, date_of_birth, gender,
-                       blood_type, allergies, status
-                       FROM patients WHERE id = $1::uuid""",
-                    patient_id,
-                )
+                is_uuid = False
+                try:
+                    UUID(str(patient_id))
+                    is_uuid = True
+                except ValueError:
+                    pass
+
+                if is_uuid:
+                    patient = await conn.fetchrow(
+                        """SELECT id, patient_code, full_name, email, date_of_birth, gender,
+                           blood_type, allergies, status
+                           FROM patients WHERE id = $1::uuid""",
+                        patient_id,
+                    )
+                else:
+                    patient = await conn.fetchrow(
+                        """SELECT id, patient_code, full_name, email, date_of_birth, gender,
+                           blood_type, allergies, status
+                           FROM patients WHERE patient_code = $1 OR patient_code = UPPER($1)""",
+                        patient_id,
+                    )
+
                 if patient is None:
                     return json.dumps({"error": f"patient {patient_id} not found"})
+
+                pid = str(patient["id"])
+
                 conditions = await conn.fetch(
                     """SELECT icd_code, condition_name, severity, onset_date, is_active
                        FROM patient_conditions
                        WHERE patient_id = $1::uuid AND is_active = true
                        ORDER BY onset_date DESC""",
-                    patient_id,
+                    pid,
                 )
                 medications = await conn.fetch(
                     """SELECT drug_name, dosage, frequency, route, status, start_date, end_date, notes
                        FROM medications
                        WHERE patient_id = $1::uuid AND status = 'active'
                        ORDER BY start_date DESC""",
-                    patient_id,
+                    pid,
                 )
                 vitals = await conn.fetch(
                     """SELECT heart_rate, blood_pressure_sys, blood_pressure_dia,
@@ -122,7 +141,7 @@ def get_patient_clinical_summary(patient_id: str) -> str:
                        FROM patient_vitals
                        WHERE patient_id = $1::uuid
                        ORDER BY recorded_at DESC LIMIT 5""",
-                    patient_id,
+                    pid,
                 )
                 labs = await conn.fetch(
                     """SELECT test_name, result_value, unit, reference_range, is_abnormal,
@@ -130,7 +149,7 @@ def get_patient_clinical_summary(patient_id: str) -> str:
                        FROM lab_results
                        WHERE patient_id = $1::uuid
                        ORDER BY collected_at DESC LIMIT 5""",
-                    patient_id,
+                    pid,
                 )
                 reports = await conn.fetch(
                     """SELECT id, report_type, title, findings, ai_summary, status,
@@ -138,7 +157,7 @@ def get_patient_clinical_summary(patient_id: str) -> str:
                        FROM diagnostic_reports
                        WHERE patient_id = $1::uuid
                        ORDER BY report_date DESC LIMIT 5""",
-                    patient_id,
+                    pid,
                 )
             return json.dumps(
                 {

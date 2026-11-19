@@ -109,6 +109,17 @@ export function BillingPageClient({ invoices: initial, summary, patients = [] }:
         }),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        let invId = data.data?.id;
+        if (typeof data.data === "string") {
+          try {
+            const parsed = JSON.parse(data.data);
+            invId = parsed.id;
+          } catch {}
+        }
+        if (invId) {
+          window.open(`/api/pdf/invoice/${invId}?download=1`, "_blank");
+        }
         window.location.reload();
       } else {
         const j = await res.json().catch(() => ({}));

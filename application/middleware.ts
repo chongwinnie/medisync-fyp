@@ -4,7 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { canAccessRoute } from "@/lib/auth/role-guard";
 import { resolveRoleFromDb } from "@/lib/auth/current-user";
 
-const PUBLIC_PATHS = ["/", "/login"];
+const PUBLIC_PATHS = ["/", "/login", "/api/auth/dev-login"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

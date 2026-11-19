@@ -8,8 +8,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 class Auth0Middleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Skip auth on health and OPTIONS
-        if request.url.path in {"/health", "/"} or request.method == "OPTIONS":
+        # Skip auth on health, memory inspector, and OPTIONS
+        if request.url.path in {"/health", "/"} or request.url.path.startswith("/memory") or request.method == "OPTIONS":
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")

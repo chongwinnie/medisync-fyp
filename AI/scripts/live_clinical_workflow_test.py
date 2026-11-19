@@ -12,11 +12,31 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import zlib
+import struct
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 BASE_URL = "http://localhost:8000"
 
-# Mock 1x1 test scan image for multimodal testing
-TEST_ULTRASOUND_B64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+def _generate_valid_png_data_uri(w=512, h=512):
+    sig = b'\x89PNG\r\n\x1a\n'
+    ihdr_data = struct.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0)
+    ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data))
+    ihdr = struct.pack('>I', len(ihdr_data)) + b'IHDR' + ihdr_data + ihdr_crc
+    raw_scanlines = b''.join(b'\x00' + bytes([128] * w) for _ in range(h))
+    compressed = zlib.compress(raw_scanlines)
+    idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed))
+    idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + idat_crc
+    iend_crc = struct.pack('>I', zlib.crc32(b'IEND'))
+    iend = struct.pack('>I', 0) + b'IEND' + iend_crc
+    png_bytes = sig + ihdr + idat + iend
+    return "data:image/png;base64," + base64.b64encode(png_bytes).decode('utf-8')
+
+TEST_ULTRASOUND_B64 = _generate_valid_png_data_uri()
 
 def http_post(path, data, role="doctor", user_id="u-1"):
     url = f"{BASE_URL}{path}"

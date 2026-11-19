@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-ALLOWED_ROLES = {"admin", "staff", "nurse"}
+ALLOWED_ROLES = {"admin", "staff", "nurse", "doctor"}
 
 
 def _role_check(request: Request) -> str | None:

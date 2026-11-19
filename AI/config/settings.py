@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     # so OpenAI quota is reserved for chat (RATE-10-1). Chat still follows PREFER_OPENAI.
     mem0_prefer_freellm: bool = True
     langsmith_api_key: str = ""
-    langchain_project: str = "medisync"
+    langsmith_project: str = "medisync-fyp"
+    langchain_project: str = "medisync-fyp"
+    langsmith_tracing: bool = True
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
     resend_api_key: str = ""
     resend_from: str = "MediSync <onboarding@resend.dev>"
     celery_broker_url: str
@@ -53,6 +56,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_refresh_token: str = ""
     google_calendar_id: str = "primary"
+    google_calendar_credentials: str = ""
     # Must match Google Cloud Console authorized redirect URI (see scripts/google_oauth_setup.py)
     google_redirect_uri: str = "http://localhost:8090/"
     # LIVE Gmail smoke recipient (strict_ext1_tests / LIVE-EXT-1)
@@ -79,6 +83,7 @@ class Settings(BaseSettings):
     @field_validator(
         "openai_api_key",
         "freellmapi_api_key",
+        "langsmith_api_key",
         "stripe_secret_key",
         "google_refresh_token",
         mode="before",
@@ -90,9 +95,27 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def _merge_openai_typo_alias(self) -> "Settings":
+    def _setup_langsmith_and_merge_aliases(self) -> "Settings":
         if not self.openai_api_key and self.opemai_api_key:
             self.openai_api_key = self.opemai_api_key.strip()
+
+        # Automatically synchronize LangSmith environment variables for LangChain/LangGraph tracing
+        key = (self.langsmith_api_key or "").strip()
+        if key:
+            import os
+            os.environ["LANGSMITH_API_KEY"] = key
+            os.environ["LANGCHAIN_API_KEY"] = key
+            tracing_val = "true" if self.langsmith_tracing else "false"
+            os.environ["LANGSMITH_TRACING"] = tracing_val
+            os.environ["LANGCHAIN_TRACING_V2"] = tracing_val
+            proj = self.langsmith_project or self.langchain_project or "medisync-fyp"
+            os.environ["LANGSMITH_PROJECT"] = proj
+            os.environ["LANGCHAIN_PROJECT"] = proj
+            endpoint = self.langsmith_endpoint or "https://api.smith.langchain.com"
+            if "apac.api.smith.langchain.com" in endpoint:
+                endpoint = "https://api.smith.langchain.com"
+            os.environ["LANGSMITH_ENDPOINT"] = endpoint
+            os.environ["LANGCHAIN_ENDPOINT"] = endpoint
         return self
 
 

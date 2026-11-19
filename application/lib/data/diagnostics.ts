@@ -50,3 +50,53 @@ export async function listDiagnosticReports(): Promise<DiagnosticReport[]> {
     };
   });
 }
+
+export async function getDiagnosticReportById(id: string): Promise<DiagnosticReport | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("diagnostic_reports")
+    .select(
+      `
+      id,
+      report_type,
+      title,
+      status,
+      ai_assisted,
+      report_date,
+      findings,
+      ai_summary,
+      patients (full_name, patient_code),
+      requested_by:staff!diagnostic_reports_requested_by_fkey (full_name)
+    `
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error("getDiagnosticReportById:", error.message);
+    return null;
+  }
+
+  const patient = firstRelation(
+    data.patients as { full_name: string; patient_code: string } | { full_name: string; patient_code: string }[] | null
+  );
+  const requestedBy = firstRelation(
+    data.requested_by as { full_name: string } | { full_name: string }[] | null
+  );
+
+  return {
+    id: data.id,
+    patient_name: patient?.full_name ?? "Unknown patient",
+    patient_code: patient?.patient_code ?? undefined,
+    report_type: data.report_type,
+    title: data.title,
+    status: data.status,
+    ai_assisted: data.ai_assisted,
+    report_date: formatDisplayDate(data.report_date),
+    requested_by: requestedBy?.full_name,
+    findings: (data.findings as string | null) ?? undefined,
+    ai_summary: (data.ai_summary as string | null) ?? undefined,
+  };
+}
+

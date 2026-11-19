@@ -1,0 +1,5 @@
+# Patient Record: John Doe (P-1042)
+
+## Long-Term Clinical Context Memories
+- [[Memories/Memory_01_User has a list of patients in|Memory #01]]: User has a list of patients including Ahmad Zainal (PT-1048), Alice Smith (P-1043), Bob Johnson (P-1044), Chong Win Jen (PT-3844), Chua Bee Leng (PT-1049), Fanny Tan (PT-2420, PT-3272, PT-7009, PT-2330), Ho Pei Shan (PT-1050), Ibrahim Hassan (PT-1051), John Doe (P-1042), Kumar Rajesh (PT-1044), Lee Jia Hui (PT-1047), Lim Wei Ming (PT-1042), Ng Ah Kow (PT-1046), Tan Mei Lin (PT-1043), and Wong Siew Hua (PT-1045).
+- [[Memories/Memory_03_User drafted a treatment plan|Memory #03]]: User drafted a treatment plan for patient John Doe (P-1042), who is admitted with hypothyroidism and is currently taking Levothyroxine 50 mcg once daily. The proposed plan includes addressing active conditions, optimizing medications, and scheduling follow-up monitoring.

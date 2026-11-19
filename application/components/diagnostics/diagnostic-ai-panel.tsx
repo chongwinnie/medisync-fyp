@@ -66,6 +66,55 @@ function getSeverityColor(sev: string) {
   return "bg-emerald-50 text-emerald-700 border-emerald-200";
 }
 
+async function fileToJpegBase64(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (!result) {
+        resolve("");
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          let w = img.naturalWidth || img.width || 800;
+          let h = img.naturalHeight || img.height || 600;
+          const maxDim = 1000;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.88));
+            return;
+          }
+        } catch (err) {
+          console.error("Canvas conversion error:", err);
+        }
+        resolve(result);
+      };
+      img.onerror = () => resolve(result);
+      img.src = result;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
   const router = useRouter();
   const [clinicalContext, setClinicalContext] = useState("");
@@ -80,6 +129,7 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
   const [patientId, setPatientId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -87,6 +137,121 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  async function handleExportPdf() {
+    if (!selectedFile && !analysisResult) {
+      setError("Please upload a medical scan image or select a patient report.");
+      return;
+    }
+
+    // Open popup window synchronously to prevent browser popup blocker
+    const pdfTab = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (pdfTab) {
+      pdfTab.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Generating Diagnostic PDF Report...</title></head>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#0f172a;">
+            <div style="text-align:center;max-width:400px;padding:32px;background:white;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+              <div style="font-size:24px;margin-bottom:12px;">🏥 MediSync Health</div>
+              <div style="font-size:16px;font-weight:600;margin-bottom:8px;color:#002444;">Generating PDF Report...</div>
+              <div style="font-size:13px;color:#64748b;line-height:1.5;">Attaching medical scan image and building PDF report. Please wait...</div>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+
+    setGeneratingPdf(true);
+    setError(null);
+
+    let imageBase64: string | undefined = undefined;
+    if (selectedFile) {
+      imageBase64 = await fileToJpegBase64(selectedFile);
+    }
+
+    const selectedPatient = patients.find((p) => p.id === patientId);
+
+    const findingsLines = (analysisResult?.findings || [])
+      .map((f) => `• [${f.severity.toUpperCase()}] ${f.location}: ${f.observation}`)
+      .join("\n");
+
+    const diffLines = (analysisResult?.differentials || [])
+      .map((d) => `• ${d.label} (${d.confidence} Confidence${d.icd_code ? ` - ICD: ${d.icd_code}` : ""})`)
+      .join("\n");
+
+    const recLines = (analysisResult?.recommendations || [])
+      .map((r) => `✓ ${r}`)
+      .join("\n");
+
+    const fullFindings = analysisResult
+      ? [
+          `IMPRESSION: ${analysisResult.impression || analysisResult.summary}`,
+          findingsLines ? `\nFINDINGS:\n${findingsLines}` : "",
+          diffLines ? `\nDIFFERENTIALS:\n${diffLines}` : "",
+          recLines ? `\nRECOMMENDATIONS:\n${recLines}` : "",
+        ].join("\n")
+      : `DIAGNOSTIC EXAMINATION & SCAN REPORT\nAnatomical Target: ${modality.toUpperCase()}\nScan Image Attached: ${selectedFile?.name || "Medical Imaging Scan"}\n\nCLINICAL CONTEXT:\n${clinicalContext || "Standard clinical examination scan attachment."}`;
+
+    try {
+      const res = await fetch("/api/pdf/diagnostic/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_name: selectedPatient?.name || "Patient",
+          patient_code: selectedPatient?.patient_code || "PT-1044",
+          report_type: modality === "xray" ? "Radiology" : "Imaging",
+          title: `AI Scan Report — ${selectedFile?.name || "Medical Scan"}`,
+          status: "FINALIZED",
+          ai_assisted: true,
+          report_date: new Date().toISOString().split("T")[0],
+          findings: fullFindings,
+          ai_summary: analysisResult ? (analysisResult.impression || analysisResult.summary) : "Uploaded diagnostic scan attached.",
+          image_base64: imageBase64,
+          modality: MODALITY_OPTIONS.find((m) => m.value === modality)?.label.split(" ")[1] || "Imaging",
+          clinical_context: clinicalContext || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (pdfTab && !pdfTab.closed) {
+          pdfTab.document.open();
+          pdfTab.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>Diagnostic PDF Report — ${selectedFile?.name || "MediSync"}</title>
+                <style>html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #525659; }</style>
+              </head>
+              <body>
+                <iframe src="${url}" type="application/pdf" width="100%" height="100%" style="border:none;"></iframe>
+              </body>
+            </html>
+          `);
+          pdfTab.document.close();
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Diagnostic-Report-${Date.now()}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } else {
+        if (pdfTab && !pdfTab.closed) pdfTab.close();
+        setError("Failed to generate PDF report.");
+      }
+    } catch (err: any) {
+      if (pdfTab && !pdfTab.closed) pdfTab.close();
+      setError("Error generating PDF document: " + err?.message);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
+
 
   function handleFile(file: File) {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -153,6 +318,11 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
     setSaving(true);
     setError(null);
 
+    let imageBase64Attachment = "";
+    if (selectedFile) {
+      imageBase64Attachment = await fileToJpegBase64(selectedFile);
+    }
+
     const findingsLines = (analysisResult.findings || [])
       .map((f) => `• [${f.severity.toUpperCase()}] ${f.location}: ${f.observation}`)
       .join("\n");
@@ -165,7 +335,7 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
       .map((r) => `✓ ${r}`)
       .join("\n");
 
-    const notes = [
+    let notes = [
       `=== AI DIAGNOSTIC IMPRESSION ===`,
       analysisResult.impression || analysisResult.summary,
       "",
@@ -177,6 +347,10 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
     ]
       .filter(Boolean)
       .join("\n");
+
+    if (imageBase64Attachment) {
+      notes += `\n\n[IMAGE_ATTACHMENT: ${imageBase64Attachment}]`;
+    }
 
     const modalityLabel = MODALITY_OPTIONS.find((m) => m.value === modality)?.label.split(" ")[1] || "Imaging";
 
@@ -196,6 +370,7 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
     setSaved(true);
     router.refresh();
   }
+
 
   return (
     <div className="w-[420px] flex-shrink-0 rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm self-start sticky top-6">
@@ -339,25 +514,49 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
           />
         </div>
 
-        {/* Analyze Action Button */}
-        <Button
-          disabled={!selectedFile || analyzing}
-          onClick={() => void handleAnalyze()}
-          className="w-full font-semibold shadow-xs"
-          style={{ backgroundColor: "#0062a1", color: "#fff" }}
-        >
-          {analyzing ? (
-            <div className="flex items-center gap-2">
-              <div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              <span>Analyzing Multimodal Scan...</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <SparklesIcon className="size-4" />
-              <span>Analyze Scan with AI</span>
-            </div>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2">
+          <Button
+            disabled={!selectedFile || analyzing}
+            onClick={() => void handleAnalyze()}
+            className="w-full font-semibold shadow-xs"
+            style={{ backgroundColor: "#0062a1", color: "#fff" }}
+          >
+            {analyzing ? (
+              <div className="flex items-center gap-2">
+                <div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                <span>Analyzing Multimodal Scan...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <SparklesIcon className="size-4" />
+                <span>Analyze Scan with AI</span>
+              </div>
+            )}
+          </Button>
+
+          {selectedFile && !analysisResult && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={generatingPdf}
+              onClick={() => void handleExportPdf()}
+              className="w-full text-xs h-9 font-semibold text-[#0062a1] border-blue-200 hover:bg-blue-50"
+            >
+              {generatingPdf ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="size-3 rounded-full border-2 border-[#0062a1]/30 border-t-[#0062a1] animate-spin" />
+                  <span>Generating PDF with Image...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <FileImage size={14} />
+                  <span>Export PDF (with Attached Image)</span>
+                </div>
+              )}
+            </Button>
           )}
-        </Button>
+        </div>
 
         {error && (
           <div className="flex items-start gap-2 text-xs text-red-600 rounded-lg bg-red-50 border border-red-100 p-3">
@@ -477,12 +676,12 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
               </div>
             )}
 
-            {/* Patient Selection & Save Draft to EHR */}
-            {patients.length > 0 && (
-              <div className="flex flex-col gap-2.5 border-t border-gray-100 pt-3.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                  Save findings as draft report
-                </p>
+            {/* Patient Selection & Save Draft to EHR / Export PDF */}
+            <div className="flex flex-col gap-2.5 border-t border-gray-100 pt-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                Actions &amp; Report Export
+              </p>
+              {patients.length > 0 && (
                 <Select value={patientId} onValueChange={setPatientId}>
                   <SelectTrigger className="w-full text-xs h-9 bg-white">
                     <SelectValue placeholder="Select patient to attach" />
@@ -495,17 +694,40 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                {patients.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving || !patientId}
+                    onClick={() => void handleSaveDraft()}
+                    className="flex-1 text-xs h-9 font-medium"
+                  >
+                    {saved ? "✓ Saved" : saving ? "Saving…" : "Save Draft"}
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  variant="outline"
-                  disabled={saving || !patientId}
-                  onClick={() => void handleSaveDraft()}
-                  className="w-full text-xs h-9 font-medium"
+                  disabled={generatingPdf}
+                  onClick={() => void handleExportPdf()}
+                  className="flex-1 text-xs h-9 font-semibold shadow-2xs"
+                  style={{ backgroundColor: "#0062a1", color: "#fff" }}
                 >
-                  {saved ? "✓ Draft saved to EHR" : saving ? "Saving to EHR…" : "Save AI Draft to Patient Record"}
+                  {generatingPdf ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="size-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      <span>Generating PDF…</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <FileImage size={14} />
+                      <span>Export PDF (with Scan)</span>
+                    </div>
+                  )}
                 </Button>
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -516,3 +738,4 @@ export function DiagnosticAIPanel({ patients = [] }: DiagnosticAIPanelProps) {
     </div>
   );
 }
+

@@ -102,13 +102,24 @@ export function ReportTable({ reports }: ReportTableProps) {
                   </td>
                   <td className="py-3 px-4 text-gray-500 whitespace-nowrap text-xs">{report.report_date}</td>
                   <td className="py-3 px-4">
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={() => setSelected(report)}
-                    >
-                      View Report
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => setSelected(report)}
+                      >
+                        View Report
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="text-[#0062a1] border-blue-200 hover:bg-blue-50 font-semibold"
+                        onClick={() => window.open(`/api/pdf/diagnostic/${report.id}?download=1`, "_blank")}
+                        title="Download Official PDF Report"
+                      >
+                        <FileTextIcon className="size-3 mr-1" /> PDF
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -151,7 +162,7 @@ export function ReportTable({ reports }: ReportTableProps) {
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Findings</p>
                 <p className="mt-1 text-gray-700 whitespace-pre-wrap">
-                  {selected.findings?.trim() || "No findings recorded."}
+                  {selected.findings?.replace(/\[IMAGE_ATTACHMENT:\s*data:image\/[^\]]+\]/g, "").trim() || "No findings recorded."}
                 </p>
               </div>
               {selected.ai_summary?.trim() && (
@@ -160,6 +171,15 @@ export function ReportTable({ reports }: ReportTableProps) {
                   <p className="mt-1 text-gray-700 whitespace-pre-wrap">{selected.ai_summary}</p>
                 </div>
               )}
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(`/api/pdf/diagnostic/${selected.id}?download=1`, "_blank")}
+                  className="text-xs text-[#0062a1] border-blue-200 hover:bg-blue-50 font-semibold"
+                >
+                  <FileTextIcon className="size-3.5 mr-1.5" /> Download PDF Report
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -167,3 +187,4 @@ export function ReportTable({ reports }: ReportTableProps) {
     </>
   )
 }
+

@@ -16,6 +16,7 @@ from api.routes.payroll import router as payroll_router
 from api.routes.billing import router as billing_router
 from api.routes.knowledge import router as knowledge_router
 from api.routes.alerts import router as alerts_router
+from api.routes.memory import router as memory_router
 from config.settings import settings
 
 
@@ -51,6 +52,7 @@ app.include_router(payroll_router)
 app.include_router(billing_router)
 app.include_router(knowledge_router)
 app.include_router(alerts_router)
+app.include_router(memory_router)
 
 
 @app.get("/")
