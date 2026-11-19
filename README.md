@@ -1,243 +1,208 @@
-#  MediSync — Smart Hospital Management & Multi-Agent AI System
+<div align="center">
 
-**MediSync** is a modern hospital management platform powered by a multi-agent AI backend. It gives **Doctors**, **Nurses**, **Operation Staff**, and **Admins** role-specific dashboards, automated clinical workflows, medical scan vision analysis, and smart context retrieval (RAG).
+# 🏥 MediSync — Multi-Agent Medical AI System
 
----
+### Role-Aware Multi-Agent Healthcare Workflows with Persistent Long-Term Memory
 
-##  1. System Architecture (In Simple Words)
+**A role-aware healthcare support platform combining specialised AI agents, persistent cross-session memory, and an updatable clinical knowledge base.**
 
-MediSync is built from three main layers that talk to each other seamlessly:
+![Multi-Agent AI](https://img.shields.io/badge/Multi--Agent-AI-2563EB?style=for-the-badge)
+![LangGraph](https://img.shields.io/badge/LangGraph-Orchestration-0F766E?style=for-the-badge)
+![RAG](https://img.shields.io/badge/RAG-Knowledge_Retrieval-0EA5E9?style=for-the-badge)
+![Memory](https://img.shields.io/badge/Memory-Cross--Session-7C3AED?style=for-the-badge)
 
-```
-                                  USER INTERFACE (Next.js 14)
-                   +---------------------------------------------------------+
-                   |  Doctor  |  Nurse  |  Operations  |  Admin   |
-                   +---------------------------------------------------------+
-                                                |
-                                                v (REST / SSE Stream / Auth0 JWT)
-                                     FASTAPI AI BACKEND
-                   +---------------------------------------------------------+
-                   |  Auth0 Role Guard (Doctor / Nurse / Admin Check)    |
-                   |  Supervisor Agent (LangGraph Intent Router)         |
-                   +---------------------------------------------------------+
-                                                |
-            +------------------+----------------+------------------+------------------+
-            |                  |                |                  |                  |
-            v                  v                v                  v                  v
-     Clinical Agent   Diagnostics    Scheduling      Inventory       Staff/HR
-     • Patient Vitals   • Vision Model     • Appointments     • Stock Tracking   • Shifts / Roster
-     • Medical History  • Scan OCR (HUD)   • Conflict Check   • Bed/Room Booking • Stripe Payroll
-     • Prescriptions    • ICD-10 Coding    • Email Reminders  • Low-Stock Alerts • Hospital Reports
-            |                  |                |                  |                  |
-            +------------------+----------------+------------------+------------------+
-                                                |
-                   +---------------------------------------------------------+
-                   |                   STORAGE & AI ENGINES                  |
-                   +---------------------------------------------------------+
-                   |  PostgreSQL (Supabase) : Patients, Reports, Billing  |
-                   |  ChromaDB              : RAG Clinical Search + Mem0  |
-                   |  Redis & Celery        : Automated 1-Day Reminders   |
-                   |  Multi-Provider Vision : Gemini 3.7 / OpenRouter     |
-                   |  Resend & Google API   : Emails & Google Calendar    |
-                   +---------------------------------------------------------+
-```
+🏆 **Third Place — AUTOCOUNT–FICT FYP Competition (2026)**  
+📄 **Accepted for publication — ICNGN 2026 (Paper ID: 235, publication link coming soon~)**
 
-### How the Parts Work Together:
-1. **Frontend (`application/`)**: Built with Next.js 14, React, and TailwindCSS. It provides real-time role-based navigation, patient profiles, scheduling calendar, diagnostic AI assistant, and billing dashboards.
-2. **AI Engine (`AI/`)**: Built with FastAPI and LangGraph. When a user asks a question, the **Supervisor Agent** inspects the intent and routes the query to the correct specialist agent (Clinical, Diagnostics, Scheduling, Inventory, or Staff HR).
-3. **Multi-Provider Vision**: When a medical image (Ultrasound, X-ray, CT, MRI, Dermatology) is uploaded, it runs through **Google Gemini 3.7 / OpenRouter / Groq** with automated fallbacks to extract findings, severity, and ICD-10 codes.
-4. **RAG & Memory**: Uses **ChromaDB** to index clinical documents and doctor consultation history, allowing the AI to pull relevant patient history without hallucinations.
+</div>
 
 ---
 
-##  2. Role-Based Features
+## 📌 Project Overview
 
-| Role | What They Can Do |
-| :--- | :--- |
-| **Clinical Staff / Nurses** | Patient admissions, vitals recording, medical history review, AI scan analysis, and automated report emailing. |
-| **Doctors** | Detailed patient care, allergy/drug safety checks, prescription management, diagnostic scan interpretation, and customized treatment planning. |
-| **Operation Staff** | Appointment scheduling with automated conflict resolution, 1-day pre-appointment email reminders, patient billing/invoicing, bed/room/theatre booking, inventory stock alerts, and queue tracking. |
-| **Hospital Admin** | Role-based permission management, hospital-wide KPI reports, staff roster & shift gap tracking, and Stripe staff payroll processing. |
+MediSync is a **production-oriented research prototype** for intelligent healthcare workflow support. Instead of relying on a single medical chatbot, it uses a **central multi-agent orchestrator** to route requests to five specialised agents, while respecting the authenticated user's role and permissions.
 
----
+Its central focus is **persistent long-term memory**: remembering relevant contextual information, retrieving it in subsequent sessions, and updating it as new information becomes available. An **updatable Retrieval-Augmented Generation (RAG) knowledge base** supplies clinical reference context separately from conversational memory.
 
-##  3. Prerequisites
+The integrated web platform supports **doctors, clinical staff (nurses), and hospital administrators** with selected clinical-support and operational workflows. It is intended to assist human professionals, **not replace clinical judgement**.
 
-Before installing, make sure you have the following installed on your machine:
-* **Node.js**: Version 20 or higher (`node -v`)
-* **Python**: Version 3.12 or higher (`python3 --version`)
-* **Docker & Docker Compose**: For local PostgreSQL, Redis, and ChromaDB (`docker compose version`)
-* **Git**: For cloning the repository
+### 🎯 Project Objectives
+
+1. Implement persistent, retrievable, and updatable **long-term memory across AI-agent sessions**.
+2. Use **specialised AI agents** to assist repetitive clinical and hospital management workflows.
+3. Provide a **centralised role-based platform** for relevant healthcare information and workflow coordination.
 
 ---
 
-##  4. Step-by-Step Installation & Setup
+## ✨ Key Features
 
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/Zeddli/medfyp.git
-cd medfyp
-```
-
----
-
-### Step 2: Start Background Infrastructure (Docker)
-Start the local PostgreSQL, Redis, and ChromaDB containers:
-
-```bash
-docker compose up -d
-```
-
-*Verify the services are running:*
-* **PostgreSQL Database**: `localhost:5433`
-* **Redis Cache & Broker**: `localhost:6379`
-* **ChromaDB Vector Store**: `localhost:8001`
-
-*(Optional) Seed local Postgres database with demo records:*
-```bash
-for f in supabase/migrations/*.sql; do
-  PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d medisync -f "$f"
-done
-PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d medisync -f supabase/seed.sql
-```
+| Capability | What it does |
+| --- | --- |
+| 🤖 **Multi-Agent Orchestration** | Classifies requests, selects specialised agents, coordinates tasks/tools, and handles fallbacks. |
+| 🧠 **Persistent Long-Term Memory** | Stores, retrieves, and updates relevant context across different conversations and sessions. |
+| 📚 **Updatable Clinical RAG** | Retrieves relevant information from indexed clinical references without retraining the LLM. |
+| 🔐 **Role-Based Access Control (RBAC)** | Restricts web modules and AI agent actions based on doctor, nurse, or administrator permissions. |
+| 🩺 **Clinical Support** | Supports patient records, clinical information retrieval, report summaries, and AI-assisted medical-image interpretation. |
+| 📅 **Hospital Operations** | Supports appointments, conflict checks, queues, stock, resources, staff schedules, and reporting. |
+| 🖼️ **Multimodal Interaction** | Accepts supported text and image inputs in the conversational interface. |
+| 🧾 **Traceability & Recovery** | Includes conversation logging, agent tracing, and fallback handling. |
 
 ---
 
-### Step 3: Configure the AI Backend (`AI/`)
+## 🧩 Specialised AI Agents
 
-1. Open the `AI` directory and create your virtual environment:
-   ```bash
-   cd AI
-   python3 -m venv .venv
-   source .venv/bin/activate    # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+A **Supervisor / Multi-Agent Orchestrator** coordinates five specialist agents:
 
-2. Configure environment variables in `AI/.env`:
-   ```bash
-   cp .env.example .env
-   ```
+| Agent | Core responsibilities |
+| --- | --- |
+| 👤 **Patient Management Agent** | Patient profiles, case history, medication information, vital signs, and treatment-plan support. |
+| 🩻 **Medical Diagnostics Agent** | Report analysis, image-interpretation assistance, diagnostic summaries, and clinical-review support. |
+| 📅 **Appointment Scheduling Agent** | Appointment booking and changes, conflict detection, reminders, and queue support. |
+| 📦 **Inventory & Resource Agent** | Stock availability, low-stock/expiry alerts, beds, rooms, and resource management. |
+| 👥 **Staff Management Agent** | Staff records, shifts, attendance, payroll-related information, and management reporting. |
 
-3. Open `AI/.env` and ensure your AI keys are set:
-   ```env
-   # Core Connections
-   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/medisync
-   REDIS_URL=redis://localhost:6379/0
-   CHROMA_HOST=localhost
-   CHROMA_PORT=8001
-   APP_ORIGIN=http://localhost:3000
-
-   # Auth0 (Match your Auth0 application)
-   AUTH0_DOMAIN=your-tenant.us.auth0.com
-   AUTH0_AUDIENCE=http://localhost:8000
-
-   # AI Vision & LLM Providers (Add at least ONE working key)
-   GEMINI_API_KEY=your_gemini_api_key_here
-   GEMINI_VISION_MODEL=gemini-3.6-flash
-   OPENROUTER_API_KEY=your_openrouter_api_key_here
-   OPENROUTER_VISION_MODEL=google/gemini-3.7-flash
-   GROQ_API_KEY=your_groq_api_key_here
-   VISION_PROVIDER=auto
-
-   # Optional External Integrations
-   RESEND_API_KEY=your_resend_email_api_key
-   STRIPE_SECRET_KEY=sk_test_your_stripe_key
-   ```
+The orchestrator checks permissions before allowing an agent or protected operation to execute.
 
 ---
 
-### Step 4: Configure the Frontend App (`application/`)
+## 🏗️ Overall System Architecture
 
-1. Open the `application` folder and install dependencies:
-   ```bash
-   cd ../application
-   npm install
-   ```
+<div align="center">
 
-2. Create `application/.env.local`:
-   ```env
-   # Auth0 Settings
-   AUTH0_DOMAIN=your-tenant.us.auth0.com
-   AUTH0_CLIENT_ID=your-client-id
-   AUTH0_CLIENT_SECRET=your-client-secret
-   AUTH0_SECRET=use-a-32-byte-random-string
-   APP_BASE_URL=http://localhost:3000
-   AUTH0_AUDIENCE=http://localhost:8000
+![MediSync Overall System Architecture](system%20architecture%20diagram.png)
 
-   # Supabase Database
-   SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_PUBLISHABLE_KEY=your-supabase-key
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-key
+*Overall system architecture: user/interface layer, AI orchestration and specialised agents, memory and knowledge, and application/data services.*
 
-   # AI Backend URL
-   NEXT_PUBLIC_AI_API_URL=http://localhost:8000
-   ```
+</div>
+
+The platform connects a **Next.js + TypeScript** user interface with **Python / FastAPI** services and the **LangChain / LangGraph** multi-agent framework. An orchestrator prepares context and coordinates tools, retrieval, and responses. Supporting components include **PostgreSQL**, **Redis**, **ChromaDB**, and **Mem0**.
 
 ---
 
-### Step 5: Run the Full System
+## 🔐 Role-Based Access Control (RBAC)
 
-Open two terminal tabs:
+<div align="center">
 
-**Terminal 1 — Run AI Backend:**
-```bash
-cd AI
-source .venv/bin/activate
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-*(Backend documentation is available at [http://localhost:8000/docs](http://localhost:8000/docs))*
+![MediSync Role-Based Access Control Diagram](RBAC.png)
 
-**Terminal 2 — Run Frontend Web App:**
-```bash
-cd application
-npm run dev
-```
-*(Open your browser at [http://localhost:3000](http://localhost:3000))*
+*Application-module and AI-agent permissions for doctors, clinical staff, and administrators.*
+
+</div>
+
+RBAC applies to **both the web application and specialised AI-agent operations**. Different roles receive different access to patient-facing, clinical, and administrative capabilities. Requests outside a user's permissions are denied or handled through a controlled fallback.
 
 ---
 
-##  5. Testing & Verification
+## 📚 Retrieval-Augmented Generation (RAG) Pipeline
 
-### 1. Test AI Vision (Medical Scan Analysis)
-1. Log in to the web app as a **Doctor** or **Clinical Staff**.
-2. Navigate to **Diagnostics** or **Diagnostic AI Assistant**.
-3. Upload an ultrasound, X-ray, or CT image and click **Analyze Scan with AI**.
-4. The system will return anatomical structures, findings, severity badges, and ICD-10 differential diagnoses.
+<div align="center">
 
-### 2. Test RAG (Knowledge Base Retrieval)
-1. In the AI chat assistant, ask:
-   > *"What were the latest diagnostic findings and medications for patient PT-1001?"*
-2. The AI uses `retrieve_clinical_context` to query ChromaDB and answers with real clinical evidence.
+![MediSync RAG Pipeline](rag%20pipeline.png)
 
-### 3. Sync Database Records into RAG
-To sync newly added patient records from Postgres into ChromaDB:
-```bash
-cd AI
-.venv/bin/python -m tools.ingest_clinical
-```
+*RAG Pipeline: Document parsing, chunking, embedding and indexing, retrieval, context construction, and response generation.*
 
----
+</div>
 
-##  6. Repository Folder Structure
+The system maintains a **separate, updatable clinical knowledge base**. Its document ingestion and question-answering workflow:
 
-```
-medfyp/
-├── application/                # Next.js 14 Web Application
-│   ├── app/                    # App Router pages (patients, diagnostics, staff, billing)
-│   ├── components/             # React UI components & AI assistant panels
-│   └── lib/                    # Auth0, Supabase actions, API clients
-├── AI/                         # FastAPI & LangGraph AI Backend
-│   ├── agents/                 # Specialized role-based AI agents
-│   ├── api/routes/             # Endpoints (chat, diagnostics, knowledge, payroll)
-│   ├── config/                 # LLM, vision provider, and system settings
-│   ├── db/                     # Postgres, Redis, ChromaDB connectors
-│   ├── graph/                  # LangGraph Supervisor orchestration router
-│   ├── memory/                 # Mem0 long-term memory engine
-│   └── tools/                  # 20+ specialized clinical & operational tools
-├── documentation/              # Setup guides and demo walkthroughs
-└── supabase/                   # SQL migrations and database seed files
-```
+1. **Ingestion:** Parse documents and split clinical text into retrievable sections or chunks.
+2. **Indexing:** Generate embeddings and store document vectors in **ChromaDB**.
+3. **Query:** Load the user question together with relevant role and session context.
+4. **Retrieval:** Search the indexed clinical knowledge for relevant passages.
+5. **Context construction:** Assemble retrieved evidence and the user question into an LLM prompt.
+6. **Response:** Generate a context-grounded answer and log applicable interaction context.
+
+The design also incorporates retrieval tools such as **DocumentRAG, GraphRAG, and TableRAG** within the wider agent framework.
 
 ---
 
+## 🧠 Three-Layer Long-Term Memory Architecture
+
+<div align="center">
+
+![MediSync Persistent Memory Architecture](memory%20architecture%20design.png)
+
+*Session memory, persistent relational conversation history, and long-term semantic memory with post-turn write-back.*
+
+</div>
+
+| Layer | Technology | Purpose |
+| --- | --- | --- |
+| **L1 · Short-term working memory** | **Redis** | Fast access to recent active session context and cached conversational turns. |
+| **L2 · Persistent relational history** | **PostgreSQL** | Durable chat sessions, messages, and associated metadata. |
+| **L3 · Long-term semantic memory** | **Mem0 + ChromaDB** | Extraction, storage, retrieval, and updating of relevant cross-session facts and preferences. |
+
+Relevant context is assembled before an agent handles a new request. After a response, an **asynchronous write-back process** updates applicable session, relational, and semantic memory stores. The architecture includes user-/patient-/role-aware contextual separation and safeguards designed to reduce irrelevant or sensitive memory retention.
+
+**Important distinction:** **RAG retrieves external clinical reference knowledge; long-term memory preserves information from prior interactions.** Both can inform a request, but they serve different roles.
+
+---
+
+## 🛠️ Technology Stack
+
+| Area | Technologies |
+| --- | --- |
+| **Frontend** | Next.js, TypeScript |
+| **Backend** | Python, FastAPI |
+| **Agent orchestration** | LangChain, LangGraph |
+| **LLM & embeddings** | OpenAI API, GPT-4o mini, `text-embedding-3-large` |
+| **Persistent memory** | Mem0 |
+| **Data stores** | PostgreSQL, Redis, ChromaDB |
+| **Database integration** | SQLAlchemy, AsyncPG |
+| **Background execution** | Celery, Redis, Python asyncio |
+| **Authentication** | Auth0 |
+| **Observability** | LangSmith, Python logging |
+| **Supporting integrations** | Resend API, Google Calendar API, Stripe, PDF processing tools |
+
+---
+
+## 🧪 Evaluation Highlights
+
+The prototype was evaluated through **tool-level, task-level, and turn-level functional testing**, as well as non-functional measurements for latency, token usage, and response accuracy.
+
+| Non-functional test level | Cases | Mean latency | Avg. tokens | Correct responses |
+| --- | ---: | ---: | ---: | ---: |
+| Tool-level | 10 | 0.042 s | 43.3 | 10/10 |
+| Task-level | 10 | 0.551 s | 421.9 | 10/10 |
+| Turn-level | 10 | 0.621 s | 496.0 | 10/10 |
+| **Overall** | **30** | **0.405 s** | **320.4** | **30/30** |
+
+The defined tests demonstrated specialist routing, workflow coordination, RAG-supported retrieval, and cross-session memory retention and updating. **The 100% result applies only to the 30 selected non-functional evaluation cases under their predefined criteria**; it is not a claim of real-world clinical diagnostic accuracy or hospital production validation.
+
+---
+
+## 🎬 System Demonstration
+
+Explore MediSync in action through the full system walkthrough, featuring the role-aware healthcare interface and multi-agent workflow demonstration.
+
+<div align="center">
+
+<a href="https://youtu.be/050RG-sDlCA">
+  <img src="https://img.youtube.com/vi/050RG-sDlCA/hqdefault.jpg" alt="MediSync — Multi-Agent Medical AI System Demonstration" width="640" />
+</a>
+
+<br /><br />
+
+<a href="https://youtu.be/050RG-sDlCA"><strong>▶ Watch the Full MediSync System Demo on YouTube</strong></a>
+
+</div>
+
+---
+
+## ⚠️ Scope & Disclaimer
+
+> **Research / demonstration prototype only.** MediSync has **not** been deployed as a live hospital system or clinically validated for autonomous patient care. Its diagnostic, image-analysis, medication, and treatment-related outputs are preliminary **decision-support information** requiring review by qualified healthcare professionals. The project does not claim regulatory certification or integration with real patient databases.
+
+---
+
+---
+
+<div align="center">
+
+**🏆 Award-winning Final Year Project**
+
+**📄 ICNGN 2026 International Conference Accepted Paper**
+
+*Persistent memory. Specialised agents. Context-aware healthcare support.*
+
+</div>
